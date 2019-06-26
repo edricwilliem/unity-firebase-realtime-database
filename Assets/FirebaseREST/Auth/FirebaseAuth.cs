@@ -97,41 +97,49 @@ namespace FirebaseREST
         }, timeout);
             op.completed += ((ao) => HandleFirebaseResponse(op, (res) =>
             {
-                Dictionary<string, object> map = Json.Deserialize(res.data) as Dictionary<string, object>;
-                List<object> userDatas = Json.Deserialize(Json.Serialize(map["users"])) as List<object>;
-                List<UserData> dataToReturn = new List<UserData>();
-                for (int i = 0; i < userDatas.Count; i++)
+                if (res.success)
                 {
-                    Dictionary<string, object> userMap = Json.Deserialize(Json.Serialize(userDatas[i])) as Dictionary<string, object>;
-                    UserData ud = new UserData();
-                    ud.createdAt = userMap.ContainsKey("createdAt") ? long.Parse(userMap["createdAt"].ToString()) : 0L;
-                    ud.customAuth = userMap.ContainsKey("customAuth") ? bool.Parse(userMap["customAuth"].ToString()) : false;
-                    ud.disabled = userMap.ContainsKey("disabled") ? bool.Parse(userMap["disabled"].ToString()) : false;
-                    ud.displayName = userMap.ContainsKey("displayName") ? userMap["displayName"].ToString() : null;
-                    ud.email = userMap.ContainsKey("email") ? userMap["email"].ToString() : null;
-                    ud.emailVerified = userMap.ContainsKey("emailVerified") ? bool.Parse(userMap["emailVerified"].ToString()) : false;
-                    ud.lastLoginAt = userMap.ContainsKey("lastLoginAt") ? long.Parse(userMap["lastLoginAt"].ToString()) : 0L;
-                    ud.localId = userMap.ContainsKey("localId") ? userMap["localId"].ToString() : null;
-                    ud.passwordUpdatedAt = userMap.ContainsKey("passwordUpdatedAt") ? long.Parse(userMap["passwordUpdatedAt"].ToString()) : 0L;
-                    ud.photoUrl = userMap.ContainsKey("photoUrl") ? userMap["photoUrl"].ToString() : null;
-                    ud.validSince = userMap.ContainsKey("photoUrl") ? userMap["validSince"].ToString() : null;
-                    if (userMap.ContainsKey("providerUserInfo"))
+                    Dictionary<string, object> map = Json.Deserialize(res.data) as Dictionary<string, object>;
+                    List<object> userDatas = Json.Deserialize(Json.Serialize(map["users"])) as List<object>;
+                    List<UserData> dataToReturn = new List<UserData>();
+                    for (int i = 0; i < userDatas.Count; i++)
                     {
-                        ud.providerUserInfo = new List<ProviderInfo>();
-                        List<object> providers = Json.Deserialize(Json.Serialize(userMap["providerUserInfo"])) as List<object>;
-                        for (int j = 0; j < providers.Count; j++)
+                        Dictionary<string, object> userMap = Json.Deserialize(Json.Serialize(userDatas[i])) as Dictionary<string, object>;
+                        UserData ud = new UserData();
+                        ud.createdAt = userMap.ContainsKey("createdAt") ? long.Parse(userMap["createdAt"].ToString()) : 0L;
+                        ud.customAuth = userMap.ContainsKey("customAuth") ? bool.Parse(userMap["customAuth"].ToString()) : false;
+                        ud.disabled = userMap.ContainsKey("disabled") ? bool.Parse(userMap["disabled"].ToString()) : false;
+                        ud.displayName = userMap.ContainsKey("displayName") ? userMap["displayName"].ToString() : null;
+                        ud.email = userMap.ContainsKey("email") ? userMap["email"].ToString() : null;
+                        ud.emailVerified = userMap.ContainsKey("emailVerified") ? bool.Parse(userMap["emailVerified"].ToString()) : false;
+                        ud.lastLoginAt = userMap.ContainsKey("lastLoginAt") ? long.Parse(userMap["lastLoginAt"].ToString()) : 0L;
+                        ud.localId = userMap.ContainsKey("localId") ? userMap["localId"].ToString() : null;
+                        ud.passwordUpdatedAt = userMap.ContainsKey("passwordUpdatedAt") ? long.Parse(userMap["passwordUpdatedAt"].ToString()) : 0L;
+                        ud.photoUrl = userMap.ContainsKey("photoUrl") ? userMap["photoUrl"].ToString() : null;
+                        ud.validSince = userMap.ContainsKey("photoUrl") ? userMap["validSince"].ToString() : null;
+                        if (userMap.ContainsKey("providerUserInfo"))
                         {
-                            ProviderInfo providerInfo = new ProviderInfo();
-                            Dictionary<string, object> obj = Json.Deserialize(Json.Serialize(providers[j])) as Dictionary<string, object>;
-                            providerInfo.federatedId = obj["federatedId"].ToString();
-                            providerInfo.providerId = obj["providerId"].ToString();
-                            ud.providerUserInfo.Add(providerInfo);
+                            ud.providerUserInfo = new List<ProviderInfo>();
+                            List<object> providers = Json.Deserialize(Json.Serialize(userMap["providerUserInfo"])) as List<object>;
+                            for (int j = 0; j < providers.Count; j++)
+                            {
+                                ProviderInfo providerInfo = new ProviderInfo();
+                                Dictionary<string, object> obj = Json.Deserialize(Json.Serialize(providers[j])) as Dictionary<string, object>;
+                                providerInfo.federatedId = obj["federatedId"].ToString();
+                                providerInfo.providerId = obj["providerId"].ToString();
+                                ud.providerUserInfo.Add(providerInfo);
+                            }
                         }
+                        dataToReturn.Add(ud);
                     }
-                    dataToReturn.Add(ud);
+                    if (OnComplete != null)
+                        OnComplete(new Response<List<UserData>>("success", true, (int)op.webRequest.responseCode, dataToReturn));
                 }
-                if (OnComplete != null)
-                    OnComplete(new Response<List<UserData>>("success", true, res.code, dataToReturn));
+                else
+                {
+                    if (OnComplete != null)
+                        OnComplete(new Response<List<UserData>>(res.message, false, res.code, null));
+                }
             }));
         }
 
@@ -144,13 +152,21 @@ namespace FirebaseREST
         }, timeout);
             op.completed += ((ao) => HandleFirebaseResponse(op, (res) =>
             {
-                Dictionary<string, object> dataMap = Json.Deserialize(op.webRequest.downloadHandler.text) as Dictionary<string, object>;
-                this.tokenData = new TokenData();
-                tokenData.expiresIn = dataMap["expires_in"].ToString();
-                tokenData.idToken = dataMap["id_token"].ToString();
-                tokenData.refreshToken = dataMap["refresh_token"].ToString();
-                if (OnComplete != null)
-                    OnComplete(new Response<TokenData>("success", true, (int)op.webRequest.responseCode, tokenData));
+                if (res.success)
+                {
+                    Dictionary<string, object> dataMap = Json.Deserialize(op.webRequest.downloadHandler.text) as Dictionary<string, object>;
+                    this.tokenData = new TokenData();
+                    tokenData.expiresIn = dataMap["expires_in"].ToString();
+                    tokenData.idToken = dataMap["id_token"].ToString();
+                    tokenData.refreshToken = dataMap["refresh_token"].ToString();
+                    if (OnComplete != null)
+                        OnComplete(new Response<TokenData>("success", true, (int)op.webRequest.responseCode, tokenData));
+                }
+                else
+                {
+                    if (OnComplete != null)
+                        OnComplete(new Response<TokenData>(res.message, false, res.code, null));
+                }
             }));
         }
 
