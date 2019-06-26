@@ -481,17 +481,32 @@ namespace FirebaseREST
 
         public override void GetValueAsync(int timeout, Action<Response<DataSnapshot>> OnComplete)
         {
-            FetchFirebaseDatabase(this.ReferenceUrl, timeout, GetQueries(), OnComplete);
-        }
+            List<string> query = GetQueries();
+            string url = this.ReferenceUrl;
+            if (query != null)
+            {
+                url = url + "?" + string.Join("&", query.ToArray());
+            }
 
-        public void Push(Dictionary<string, object> data, int timeout, Action<Response<string>> OnComplete)
-        {
-            PushFirebaseData(this.ReferenceUrl, Json.Serialize(data), timeout, OnComplete);
+            UnityWebRequest webReq = new UnityWebRequest(url, UnityWebRequest.kHttpVerbGET);
+            webReq.downloadHandler = new DownloadHandlerBuffer();
+            webReq.timeout = timeout;
+
+            if (FirebaseAuth.Instance.IsSignedIn)
+            {
+                string sign = query == null ? "?" : "&";
+                webReq.url = webReq.url + sign + "auth=" + FirebaseAuth.Instance.AccessToken;
+            }
+            UnityWebRequestAsyncOperation op = webReq.SendWebRequest();
+            op.completed += ((ao) => HandleFirebaseDatabaseResponse(op, (res) =>
+            {
+                if (OnComplete != null)
+                    OnComplete(new Response<DataSnapshot>(null, true, (int)ResponseCode.SUCCESS, new FirebaseDataSnapshot(this, Json.Deserialize(res.data))));
+            }));
         }
 
         public void Push(object data, int timeout, Action<Response<string>> OnComplete)
         {
-            ValidateValue(data);
             PushFirebaseData(this.ReferenceUrl, Json.Serialize(data), timeout, OnComplete);
         }
 
@@ -514,8 +529,15 @@ namespace FirebaseREST
 
         public void SetValueAsync(object data, int timeout, Action<Response> OnComplete)
         {
-            ValidateValue(data);
-            WriteFirebaseData(this.ReferenceUrl, data, timeout, "PUT", OnComplete);
+            try
+            {
+                data = Json.Serialize(data);
+                WriteFirebaseData(this.ReferenceUrl, data, timeout, "PUT", OnComplete);
+            }
+            catch
+            {
+                throw new NotSupportedException("Not supported data types");
+            }
         }
 
         public void UpdateChildAsync(Dictionary<string, object> data, int timeout, Action<Response> OnComplete)
@@ -536,31 +558,6 @@ namespace FirebaseREST
             op.completed += ((ao) => HandleFirebaseDatabaseResponse(op, OnComplete));
         }
 
-        object ValidateValue(object data)
-        {
-            int intValue;
-            double doubleValue;
-            bool boolValue;
-            long longValue;
-            if (data is string) return "\"" + data + "\"";
-            else if (int.TryParse(data.ToString(), out intValue)) return data;
-            else if (double.TryParse(data.ToString(), out doubleValue)) return data;
-            else if (bool.TryParse(data.ToString(), out boolValue)) return data;
-            else if (long.TryParse(data.ToString(), out longValue)) return data;
-            else throw new NotSupportedException("Not supported data types");
-        }
-
-        void SetValue(string dbpath, object data, int timeout, Action<Response> OnComplete)
-        {
-            data = ValidateValue(data);
-            string[] arr = dbpath.Split('/');
-            string keyToSet = arr[arr.Length - 1];
-            dbpath = dbpath.Replace(keyToSet, string.Empty);
-            Dictionary<string, object> dataToSave = new Dictionary<string, object>();
-            dataToSave.Add(keyToSet, data);
-            WriteFirebaseData(dbpath, data, timeout, "PUT", OnComplete);
-        }
-
         void PushFirebaseData(string dbpath, string rawData, int timeout, Action<Response<string>> OnComplete)
         {
             UnityWebRequest webReq = new UnityWebRequest(this.ReferenceUrl, "POST");
@@ -575,10 +572,14 @@ namespace FirebaseREST
             UnityWebRequestAsyncOperation op = webReq.SendWebRequest();
             op.completed += ((ao) => HandleFirebaseDatabaseResponse(op, (res) =>
             {
-                Dictionary<string, object> data = Json.Deserialize(res.data) as Dictionary<string, object>;
-                string pushedId = data["name"].ToString();
+                string pushedId = null;
+                if (res.success)
+                {
+                    Dictionary<string, object> data = Json.Deserialize(res.data) as Dictionary<string, object>;
+                    pushedId = data["name"].ToString();
+                }
                 if (OnComplete != null)
-                    OnComplete(new Response<string>("success", true, (int)ResponseCode.SUCCESS, pushedId));
+                    OnComplete(new Response<string>(res.message, res.success, res.code, pushedId));
             }));
         }
 
@@ -595,31 +596,6 @@ namespace FirebaseREST
                 webReq.url = webReq.url + "?auth=" + FirebaseAuth.Instance.AccessToken;
             UnityWebRequestAsyncOperation op = webReq.SendWebRequest();
             op.completed += ((ao) => HandleFirebaseDatabaseResponse(op, OnComplete));
-        }
-
-        void FetchFirebaseDatabase(string dbpath, int timeout, List<string> query, Action<Response<DataSnapshot>> OnComplete)
-        {
-            string url = this.ReferenceUrl;
-            if (query != null)
-            {
-                url = url + "?" + string.Join("&", query.ToArray());
-            }
-
-            UnityWebRequest webReq = new UnityWebRequest(url, UnityWebRequest.kHttpVerbGET);
-            webReq.downloadHandler = new DownloadHandlerBuffer();
-            webReq.timeout = timeout;
-
-            if (FirebaseAuth.Instance.IsSignedIn)
-            {
-                string sign = query == null ? "?" : "&";
-                webReq.url = webReq.url + sign + "auth=" + FirebaseAuth.Instance.AccessToken;
-            }
-            UnityWebRequestAsyncOperation op = webReq.SendWebRequest();
-            op.completed += ((ao) => HandleFirebaseDatabaseResponse(op, (res) =>
-            {
-                if (OnComplete != null)
-                    OnComplete(new Response<DataSnapshot>(null, true, (int)ResponseCode.SUCCESS, new FirebaseDataSnapshot(this, Json.Deserialize(res.data))));
-            }));
         }
 
         void HandleFirebaseDatabaseResponse(UnityWebRequestAsyncOperation webReqOp, Action<Response> OnComplete)
