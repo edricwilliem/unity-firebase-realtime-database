@@ -501,7 +501,7 @@ namespace FirebaseREST
             op.completed += ((ao) => HandleFirebaseDatabaseResponse(op, (res) =>
             {
                 if (OnComplete != null)
-                    OnComplete(new Response<DataSnapshot>(null, true, (int)ResponseCode.SUCCESS, new FirebaseDataSnapshot(this, Json.Deserialize(res.data))));
+                    OnComplete(new Response<DataSnapshot>(res.message, res.success, res.code, new FirebaseDataSnapshot(this, Json.Deserialize(res.data))));
             }));
         }
 
