@@ -129,19 +129,12 @@ namespace FirebaseREST
             Debug.Log("Unity ES Error");
             if (esWebGLMap.ContainsKey(id))
             {
-                esWebGLMap[id].Close();
                 if (esWebGLMap[id].EventSourceError != null)
                     esWebGLMap[id].EventSourceError(new FirebaseEventSourceErrorArgs(error));
+                esWebGLMap[id].Close();
+                esWebGLMap[id] = null;
                 esWebGLMap.Remove(id);
             }
-        }
-
-        [MonoPInvokeCallback(typeof(_EventSourceClosedArgs))]
-        public static void EventSourceClosedCallback(int id)
-        {
-            Debug.Log("Unitt ES Closed");
-            if (esWebGLMap.ContainsKey(id))
-                esWebGLMap.Remove(id);
         }
 
         [DllImport("__Internal")]
@@ -149,6 +142,6 @@ namespace FirebaseREST
              _EventSourceMessageArgs onMessage, _EventSourceErrorArgs onError);
 
         [DllImport("__Internal")]
-        static extern void CloseEventSource(int id, _EventSourceClosedArgs onClosed);
+        static extern void CloseEventSource(int id);
     }
 }

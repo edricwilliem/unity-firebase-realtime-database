@@ -1,9 +1,11 @@
-# Unity C# Firebase Realtime Database (REST API)
+# Unity Firebase Realtime Database REST API
 Write, Read, Remove and Streaming data using [Firebase's database REST API](https://firebase.google.com/docs/reference/rest/database)
 
 This is not firebase's official plugins library.
 
-Contributions to this project are welcome! 
+Tested on Android and WebGL platform. should work well on other platforms too since most of the implementation is only a simple http REST request.
+
+Contributions to this project are welcome!.
 
 ## Sample Usage
 

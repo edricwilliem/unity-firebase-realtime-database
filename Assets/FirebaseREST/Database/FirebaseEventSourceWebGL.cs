@@ -30,7 +30,11 @@ namespace FirebaseREST
 
             public void Close()
             {
-                CloseEventSource(this.Id, EventSourceClosedCallback);
+                CloseEventSource(_id);
+                if (esWebGLMap.ContainsKey(_id))
+                {
+                    esWebGLMap.Remove(_id);
+                }
             }
         }
     }

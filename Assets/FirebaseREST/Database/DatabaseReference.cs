@@ -274,10 +274,16 @@ namespace FirebaseREST
             {
 #if UNITY_WEBGL
                 if (esGL != null)
+                {
                     esGL.Close();
+                    esGL = null;
+                }
 #else
-            if (webReq != null)
-                webReq.Dispose();
+                if (webReq != null)
+                {
+                    webReq.Dispose();
+                    webReq = null;
+                }
 #endif
             }
         }

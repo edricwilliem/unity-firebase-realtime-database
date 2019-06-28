@@ -109,20 +109,13 @@
 		return es.Set(event);
 	},
 
-	CloseEventSource: function(id,onSuccess)
+	CloseEventSource: function(id)
 	{
 		console.log(id + ' ES_Close');
-
 		var event = es.Get(id);
-
-		try
-		{
-			event.close();
-		    es.Remove(id);
-            Runtime.dynCall('vi', onSuccess, [id]);
-		}
-		catch(e) {
-			es._callOnError(event.onError, id, e.name + ': ' + e.message);
+		if(event){
+			event.eventImpl.close();
+			es.Remove(id);
 		}
 	}
 };
