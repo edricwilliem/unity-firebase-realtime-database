@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Begin Jekyll SEO tag v2.5.0 -->
+<title>Unity Firebase Realtime Database REST | Unity Firebase Realtime Database REST</title>
+<meta name="generator" content="Jekyll v3.8.5" />
+<meta property="og:title" content="Unity Firebase Realtime Database REST" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Unity Firebase Realtime Database REST" />
+<meta property="og:description" content="Unity Firebase Realtime Database REST" />
+<link rel="canonical" href="https://edricwilliem.github.io/" />
+<meta property="og:url" content="https://edricwilliem.github.io/" />
+<meta property="og:site_name" content="Unity Firebase Realtime Database REST" />
+<meta name="google-site-verification" content="i-O3ou8aOEGQfnUIAYjl4ALvY08KaAFS7N3FQzVbD9Q" />
+<script type="application/ld+json">
+{"name":"Unity Firebase Realtime Database REST","description":"Unity Firebase Realtime Database REST","@type":"WebSite","url":"https://edricwilliem.github.io/","publisher":{"@type":"Organization","logo":{"@type":"ImageObject","url":"https://edricwilliem.github.io/assets/ew.png"}},"headline":"Unity Firebase Realtime Database REST","@context":"http://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+    <link rel="stylesheet" href="/assets/css/style.css?v=06540f3778467b7d295e6d072b54ce5288080bf7">
+  </head>
+  <body>
+    <div class="container-lg px-3 my-5 markdown-body">
+      
+      <h1><a href="https://edricwilliem.github.io/">Unity Firebase Realtime Database REST</a></h1>
+      
+
+      <p>Write, Read, Remove and Streaming data using <a href="https://firebase.google.com/docs/reference/rest/database">Firebase’s database REST API</a></p>
+
+<p>This is not firebase’s official plugins library.</p>
+
+<p>Tested on Android and WebGL platform. should work well on other platforms too since most of the implementation is only a simple http REST request.</p>
+
+<p>Contributions to this project are welcome!.</p>
+
+<h2 id="sample-usage">Sample Usage</h2>
+
+<h3 id="setting-firebase">Setting Firebase</h3>
+
+<p>Before using the library you need to setup some settings in <code class="highlighter-rouge">FirebaseSettings.cs</code></p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>DATABASE_URL = "https://example.firebaseio.com/";
+WEB_API = "[WEB_API_KEY]";
+</code></pre></div></div>
+
+<h3 id="write-data">Write Data</h3>
+<p>Set Value:</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>DatabaseReference reference = FirebaseDatabase.Instance.GetReference("path/to/save");
+reference.SetValueAsync("mydata", 10,(res) =&gt; 
+{
+    if (res.success)
+    {
+        Debug.Log("Write success");
+    }
+    else
+    {
+        Debug.Log("Write failed : " + res.message);
+    }
+});
+
+reference.SetRawJsonValueAsync("{\"key\":\"value\"}", 10,(res) =&gt; 
+{
+    if (res.success)
+    {
+        Debug.Log("Write success");
+    }
+    else
+    {
+        Debug.Log("Write failed : " + res.message);
+    }
+});
+</code></pre></div></div>
+<p>Update Child Value:</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>DatabaseReference reference = FirebaseDatabase.Instance.GetReference("path/to/save");
+reference.UpdateValueAsync(new Dictionary&lt;string, object&gt;(){
+    {"child1","value1"},{"child2","value2"}
+}, 10, (res) =&gt;
+{
+    if (res.success)
+    {
+        Debug.Log("Write success");
+    }
+    else
+    {
+        Debug.Log("Write failed : " + res.message);
+    }
+});
+</code></pre></div></div>
+<p>Push Value:</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>DatabaseReference reference = FirebaseDatabase.Instance.GetReference("path/to/save");
+reference.Push("mydata, 10, (res)=&gt;{
+    if(res.success){
+        Debug.Log("Pushed with id: " + res.data);
+    }
+    else{
+        Debug.Log("Push failed : " + res.message);
+    }
+});
+</code></pre></div></div>
+
+<h3 id="read-data">Read Data</h3>
+<p>Get Value:</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>DatabaseReference reference = FirebaseDatabase.Instance.GetReference("path/to/query");
+reference.GetValueAsync(10, (res) =&gt;
+{
+    if (res.success)
+    {
+        Debug.Log("Success fetched data : " + res.data.GetRawJsonValue());
+    }
+    else
+    {
+        Debug.Log("Fetch data failed : " + res.message);
+    }
+});
+</code></pre></div></div>
+<p>Query &amp; Order :</p>
+
+<ul>
+  <li>OrderByChild</li>
+  <li>OrderByKey</li>
+  <li>OrderByValue</li>
+  <li>StartAt</li>
+  <li>EndAt</li>
+  <li>LimitAtFirst</li>
+  <li>LimitAtLast
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>DatabaseReference reference = FirebaseDatabase.Instance.GetReference("path/to/query");
+reference.OrderByChild("age").StartAt(12).EndAt(20).LimitAtFirst(5).GetValueAsync(10,(res)=&gt;{
+      if (res.success)
+      {
+          Debug.Log("Success fetched data : " +res.data.GetRawJsonValue());
+      }
+      else
+      {
+          Debug.Log("Fetch data failed : " + res.message);
+      }
+});
+</code></pre></div>    </div>
+  </li>
+</ul>
+
+<h3 id="delete-data">Delete Data</h3>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>DatabaseReference reference = FirebaseDatabase.Instance.GetReference("path/to/delete");
+reference.RemoveValueAsync(10, (e) =&gt;
+{
+    if (e.success)
+    {
+        Debug.Log("Delete data success");
+    }
+    else{
+        Debug.Log("Delete data failed : " + res.message);
+    }
+});
+</code></pre></div></div>
+
+<h3 id="streaming-data">Streaming Data</h3>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>DatabaseReference reference = FirebaseDatabase.Instance.GetReference("path/to/stream");
+reference.ValueChanged += (sender, e) =&gt;
+{
+    Debug.Log(e.Snapshot.GetRawJsonValue());
+};
+reference.DatabaseError += (sender,e)=&gt;{
+    Debug.Log(e.DatabaseError.Message);
+    Debug.Log("Streaming connection closed");
+};
+</code></pre></div></div>
+
+<h3 id="authentication">Authentication</h3>
+<p>Set the credential using saved tokens</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>FirebaseAuth.Instance.TokenData = new TokenData()
+{
+    refreshToken = savedRefreshToken,
+    idToken = savedAccessToken
+};
+</code></pre></div></div>
+
+<p>or Sign In</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>FirebaseAuth.Instance.SignInWithEmail("example@example.com", "example", 10, (res) =&gt;
+{
+    if (res.success)
+    {
+        Debug.Log("Access token : " + res.data.idToken);
+    }
+    else
+    {
+        Debug.Log("Signed Failed");
+    }
+});
+</code></pre></div></div>
+<p>after signed in, the <code class="highlighter-rouge">FirebaseAuth.Instance.TokenData</code> will be automatically set</p>
+
+<p><code class="highlighter-rouge">FirebaseAuth.Instance.TokenData</code>  will be used for authentication on every database’s request.</p>
+
+<h2 id="license">License</h2>
+<p>MIT</p>
+
+
+      
+      <div class="footer border-top border-gray-light mt-5 pt-3 text-right text-gray">
+        This site is open source. <a href="https://github.com/edricwilliem/unity-firebase-realtime-database-rest/edit/gh-pages/README.md">Improve this page</a>.
+      </div>
+      
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/anchor-js/4.1.0/anchor.min.js" integrity="sha256-lZaRhKri35AyJSypXXs4o6OPFTbTmUoltBbDCbdzegg=" crossorigin="anonymous"></script>
+    <script>anchors.add();</script>
+    
+  </body>
+</html>
