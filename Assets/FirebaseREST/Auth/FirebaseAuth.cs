@@ -12,6 +12,7 @@ namespace FirebaseREST
     {
         readonly string EMAIL_AUTH_URL = "https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyPassword?key=" + FirebaseSettings.WEB_API;
         readonly string CUSTOM_TOKEN_AUTH_URL = "https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyCustomToken?key=" + FirebaseSettings.WEB_API;
+        readonly string ANONYMOUS_AUTH_URL = "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" + FirebaseSettings.WEB_API;
         readonly string REFRESH_TOKEN_URL = "https://securetoken.googleapis.com/v1/token?key=" + FirebaseSettings.WEB_API;
         readonly string USER_INFO_URL = "https://www.googleapis.com/identitytoolkit/v3/relyingparty/getAccountInfo?key=" + FirebaseSettings.WEB_API;
         TokenData tokenData;
@@ -64,36 +65,27 @@ namespace FirebaseREST
         {
             applicationIsQuitting = true;
         }
+        
+        public bool IsSignedIn => tokenData != null;
 
-        public string AccessToken
-        {
-            get
-            {
-                if (tokenData == null)
-                    return null;
-                return tokenData.idToken;
-            }
+        public void GetAccessToken(Action<string> onComplete) {
+            if (tokenData == null)
+                onComplete?.Invoke(null);
+            else if (IsTokenExpired)
+                RefreshAccessToken(10, response => onComplete(response.data.IdToken));
+            else
+                onComplete?.Invoke(tokenData.IdToken);
         }
 
-        public bool IsSignedIn
-        {
-            get
-            {
-                return tokenData != null;
-            }
-        }
+        private bool IsTokenExpired => DateTime.Now - tokenData.RefreshedAt > TimeSpan.FromSeconds(double.Parse(tokenData.ExpiresIn));
 
-        void Awake()
-        {
-
-        }
 
         public void FetchUserInfo(int timeout, Action<Response<List<UserData>>> OnComplete)
         {
             if (tokenData == null)
                 throw new Exception("User has not logged in");
             UnityWebRequestAsyncOperation op = StartRequest(USER_INFO_URL, "POST", new Dictionary<string, object>(){
-            {"idToken",tokenData.idToken}
+            {"idToken",tokenData.IdToken}
         }, timeout);
             op.completed += ((ao) => HandleFirebaseResponse(op, (res) =>
             {
@@ -148,17 +140,15 @@ namespace FirebaseREST
             if (tokenData == null)
                 throw new Exception("User has not logged in");
             UnityWebRequestAsyncOperation op = StartRequest(REFRESH_TOKEN_URL, "POST", new Dictionary<string, object>(){
-            {"grant_type","refresh_token"},{"refresh_token",tokenData.refreshToken}
+            {"grant_type","refresh_token"},{"refresh_token",tokenData.RefreshToken}
         }, timeout);
             op.completed += ((ao) => HandleFirebaseResponse(op, (res) =>
             {
                 if (res.success)
                 {
                     Dictionary<string, object> dataMap = Json.Deserialize(op.webRequest.downloadHandler.text) as Dictionary<string, object>;
-                    this.tokenData = new TokenData();
-                    tokenData.expiresIn = dataMap["expires_in"].ToString();
-                    tokenData.idToken = dataMap["id_token"].ToString();
-                    tokenData.refreshToken = dataMap["refresh_token"].ToString();
+                    tokenData = new TokenData(dataMap["id_token"].ToString(), dataMap["refresh_token"].ToString(), 
+                        dataMap["expires_in"].ToString(), DateTime.Now);
                     if (OnComplete != null)
                         OnComplete(new Response<TokenData>("success", true, (int)op.webRequest.responseCode, tokenData));
                 }
@@ -183,6 +173,14 @@ namespace FirebaseREST
             UnityWebRequestAsyncOperation op = StartRequest(EMAIL_AUTH_URL, "POST", new Dictionary<string, object>(){
             {"email",email},{"password",password},{"returnSecureToken",true}
         }, timeout);
+            op.completed += ((ao) => HandleFirebaseSignInResponse(op, OnComplete));
+        }
+        
+        public void SignInAnonymously(int timeout, Action<Response<TokenData>> OnComplete)
+        {
+            UnityWebRequestAsyncOperation op = StartRequest(ANONYMOUS_AUTH_URL, "POST", new Dictionary<string, object>(){
+                    {"returnSecureToken",true}
+            }, timeout);
             op.completed += ((ao) => HandleFirebaseSignInResponse(op, OnComplete));
         }
 
@@ -216,10 +214,7 @@ namespace FirebaseREST
                 if (OnComplete != null)
                 {
                     Dictionary<string, object> dataMap = Json.Deserialize(webReqOp.webRequest.downloadHandler.text) as Dictionary<string, object>;
-                    this.tokenData = new TokenData();
-                    tokenData.expiresIn = dataMap["expiresIn"].ToString();
-                    tokenData.idToken = dataMap["idToken"].ToString();
-                    tokenData.refreshToken = dataMap["refreshToken"].ToString();
+                    this.tokenData = new TokenData(dataMap["idToken"].ToString(), dataMap["refreshToken"].ToString(), dataMap["expiresIn"].ToString(), DateTime.Now);
                     OnComplete(new Response<TokenData>("success", true, (int)webReqOp.webRequest.responseCode, tokenData));
                 }
             }
