@@ -58,8 +58,7 @@ namespace FirebaseREST
                     esGL = new FirebaseDatabase.FirebaseEventSourceWebGL(url, true, null,
                         OnEventSourceMessageReceived, OnEventSourceError);
                 });
-            }
-            else {
+            } else {
                 esGL = new FirebaseDatabase.FirebaseEventSourceWebGL(url, false, null,
                     OnEventSourceMessageReceived, OnEventSourceError);
             }
@@ -67,20 +66,26 @@ namespace FirebaseREST
 #else
             if (webReq != null) return;
             string url = this.ReferenceUrl;
+
+            Action sendRequest = () => {
+                webReq = new UnityWebRequest(url);
+                webReq.SetRequestHeader("Accept", "text/event-stream");
+                webReq.SetRequestHeader("Cache-Control", "no-cache");
+                FirebaseServerEventsDownloadHandler downloadHandler = new FirebaseServerEventsDownloadHandler();
+                downloadHandler.DataReceived += OnDataReceived;
+                webReq.downloadHandler = downloadHandler;
+                webReq.disposeDownloadHandlerOnDispose = true;
+                UnityWebRequestAsyncOperation webReqAO = webReq.SendWebRequest();
+                webReqAO.completed += ((ao) => OnStopListening(webReqAO));
+            };
+            
             if (FirebaseAuth.Instance.IsSignedIn) {
                 FirebaseAuth.Instance.GetAccessToken(accessToken => {
                     url = url + "?auth=" + accessToken;
-                    webReq = new UnityWebRequest(url);
-                    webReq.SetRequestHeader("Accept", "text/event-stream");
-                    webReq.SetRequestHeader("Cache-Control", "no-cache");
-                    FirebaseServerEventsDownloadHandler downloadHandler = new FirebaseServerEventsDownloadHandler();
-                    downloadHandler.DataReceived += OnDataReceived;
-                    webReq.downloadHandler = downloadHandler;
-                    webReq.disposeDownloadHandlerOnDispose = true;
-                    UnityWebRequestAsyncOperation webReqAO = webReq.SendWebRequest();
-                    webReqAO.completed += ((ao) => OnStopListening(webReqAO));
+                    sendRequest();
                 });
-            }
+            } else
+                sendRequest();
 #endif
         }
 
