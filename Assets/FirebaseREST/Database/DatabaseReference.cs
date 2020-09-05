@@ -52,28 +52,40 @@ namespace FirebaseREST
 #if UNITY_WEBGL && !UNITY_EDITOR
             if (esGL != null) return;
             string url = this.ReferenceUrl;
-            bool withCredential = false;
-            if (FirebaseAuth.Instance.IsSignedIn)
-            {
-                url = url + "?auth=" + FirebaseAuth.Instance.AccessToken;
-                withCredential = true;
+            if (FirebaseAuth.Instance.IsSignedIn) {
+                FirebaseAuth.Instance.GetAccessToken((accessToken) => { 
+                    url = url + "?auth=" + accessToken;
+                    esGL = new FirebaseDatabase.FirebaseEventSourceWebGL(url, true, null,
+                        OnEventSourceMessageReceived, OnEventSourceError);
+                });
+            } else {
+                esGL = new FirebaseDatabase.FirebaseEventSourceWebGL(url, false, null,
+                    OnEventSourceMessageReceived, OnEventSourceError);
             }
-            esGL = new FirebaseDatabase.FirebaseEventSourceWebGL(url, withCredential, null,
-                OnEventSourceMessageReceived, OnEventSourceError);
+            
 #else
             if (webReq != null) return;
             string url = this.ReferenceUrl;
-            if (FirebaseAuth.Instance.IsSignedIn)
-                url = url + "?auth=" + FirebaseAuth.Instance.AccessToken;
-            webReq = new UnityWebRequest(url);
-            webReq.SetRequestHeader("Accept", "text/event-stream");
-            webReq.SetRequestHeader("Cache-Control", "no-cache");
-            FirebaseServerEventsDownloadHandler downloadHandler = new FirebaseServerEventsDownloadHandler();
-            downloadHandler.DataReceived += OnDataReceived;
-            webReq.downloadHandler = downloadHandler;
-            webReq.disposeDownloadHandlerOnDispose = true;
-            UnityWebRequestAsyncOperation webReqAO = webReq.SendWebRequest();
-            webReqAO.completed += ((ao) => OnStopListening(webReqAO));
+
+            Action sendRequest = () => {
+                webReq = new UnityWebRequest(url);
+                webReq.SetRequestHeader("Accept", "text/event-stream");
+                webReq.SetRequestHeader("Cache-Control", "no-cache");
+                FirebaseServerEventsDownloadHandler downloadHandler = new FirebaseServerEventsDownloadHandler();
+                downloadHandler.DataReceived += OnDataReceived;
+                webReq.downloadHandler = downloadHandler;
+                webReq.disposeDownloadHandlerOnDispose = true;
+                UnityWebRequestAsyncOperation webReqAO = webReq.SendWebRequest();
+                webReqAO.completed += ((ao) => OnStopListening(webReqAO));
+            };
+            
+            if (FirebaseAuth.Instance.IsSignedIn) {
+                FirebaseAuth.Instance.GetAccessToken(accessToken => {
+                    url = url + "?auth=" + accessToken;
+                    sendRequest();
+                });
+            } else
+                sendRequest();
 #endif
         }
 
@@ -498,17 +510,22 @@ namespace FirebaseREST
             webReq.downloadHandler = new DownloadHandlerBuffer();
             webReq.timeout = timeout;
 
-            if (FirebaseAuth.Instance.IsSignedIn)
-            {
-                string sign = query == null ? "?" : "&";
-                webReq.url = webReq.url + sign + "auth=" + FirebaseAuth.Instance.AccessToken;
+            Action sendRequest = () => {
+                var op = webReq.SendWebRequest();
+                op.completed += (ao) => HandleFirebaseDatabaseResponse(op, res => {
+                    OnComplete?.Invoke(new Response<DataSnapshot>(res.message, res.success, res.code, new FirebaseDataSnapshot(this, Json.Deserialize(res.data))));
+                });
+            };
+
+            if (FirebaseAuth.Instance.IsSignedIn) {
+                FirebaseAuth.Instance.GetAccessToken(accessToken => {
+                    string sign = query == null ? "?" : "&";
+                    webReq.url = webReq.url + sign + "auth=" + accessToken;
+                    sendRequest();
+                });
+            } else {
+                sendRequest();
             }
-            UnityWebRequestAsyncOperation op = webReq.SendWebRequest();
-            op.completed += ((ao) => HandleFirebaseDatabaseResponse(op, (res) =>
-            {
-                if (OnComplete != null)
-                    OnComplete(new Response<DataSnapshot>(res.message, res.success, res.code, new FirebaseDataSnapshot(this, Json.Deserialize(res.data))));
-            }));
         }
 
         public void Push(object data, int timeout, Action<Response<string>> OnComplete)
@@ -558,10 +575,19 @@ namespace FirebaseREST
             webReq.SetRequestHeader("Content-Type", "application/json");
             webReq.timeout = timeout;
 
-            if (FirebaseAuth.Instance.IsSignedIn)
-                webReq.url = webReq.url + "?auth=" + FirebaseAuth.Instance.AccessToken;
-            UnityWebRequestAsyncOperation op = webReq.SendWebRequest();
-            op.completed += ((ao) => HandleFirebaseDatabaseResponse(op, OnComplete));
+            Action sendRequest = () => {
+                var op = webReq.SendWebRequest();
+                op.completed += ((ao) => HandleFirebaseDatabaseResponse(op, OnComplete));
+            };
+
+            if (FirebaseAuth.Instance.IsSignedIn) {
+                FirebaseAuth.Instance.GetAccessToken((accessToken) => {
+                    webReq.url = webReq.url + "?auth=" + accessToken;
+                    sendRequest();
+                });
+            } else {
+                sendRequest();
+            }
         }
 
         void PushFirebaseData(string dbpath, string rawData, int timeout, Action<Response<string>> OnComplete)
@@ -573,20 +599,26 @@ namespace FirebaseREST
             webReq.SetRequestHeader("Content-Type", "application/json");
             webReq.timeout = timeout;
 
-            if (FirebaseAuth.Instance.IsSignedIn)
-                webReq.url = webReq.url + "?auth=" + FirebaseAuth.Instance.AccessToken;
-            UnityWebRequestAsyncOperation op = webReq.SendWebRequest();
-            op.completed += ((ao) => HandleFirebaseDatabaseResponse(op, (res) =>
-            {
-                string pushedId = null;
-                if (res.success)
-                {
-                    Dictionary<string, object> data = Json.Deserialize(res.data) as Dictionary<string, object>;
-                    pushedId = data["name"].ToString();
-                }
-                if (OnComplete != null)
-                    OnComplete(new Response<string>(res.message, res.success, res.code, pushedId));
-            }));
+            Action sendRequest = () => {
+                var op = webReq.SendWebRequest();
+                op.completed += (ao) => HandleFirebaseDatabaseResponse(op, (res) => {
+                    string pushedId = null;
+                    if (res.success) {
+                        Dictionary<string, object> data = Json.Deserialize(res.data) as Dictionary<string, object>;
+                        pushedId = data["name"].ToString();
+                    }
+                    OnComplete?.Invoke(new Response<string>(res.message, res.success, res.code, pushedId));
+                });
+            };
+
+            if (FirebaseAuth.Instance.IsSignedIn) {
+                FirebaseAuth.Instance.GetAccessToken(accessToken => {
+                    webReq.url = webReq.url + "?auth=" + accessToken;
+                    sendRequest();
+                });
+            } else {
+                sendRequest();
+            }
         }
 
         void WriteFirebaseData(string dbpath, object data, int timeout, string requestMethod, Action<Response> OnComplete)
@@ -598,10 +630,19 @@ namespace FirebaseREST
             webReq.SetRequestHeader("Content-Type", "application/json");
             webReq.timeout = timeout;
 
-            if (FirebaseAuth.Instance.IsSignedIn)
-                webReq.url = webReq.url + "?auth=" + FirebaseAuth.Instance.AccessToken;
-            UnityWebRequestAsyncOperation op = webReq.SendWebRequest();
-            op.completed += ((ao) => HandleFirebaseDatabaseResponse(op, OnComplete));
+            Action sendRequest = () => {
+                var op = webReq.SendWebRequest();
+                op.completed += ((ao) => HandleFirebaseDatabaseResponse(op, OnComplete));
+            };
+
+            if (FirebaseAuth.Instance.IsSignedIn) {
+                FirebaseAuth.Instance.GetAccessToken((accessToken) => {
+                    webReq.url = webReq.url + "?auth=" + accessToken;
+                    sendRequest();
+                });
+            } else {
+                sendRequest();
+            }
         }
 
         void HandleFirebaseDatabaseResponse(UnityWebRequestAsyncOperation webReqOp, Action<Response> OnComplete)
