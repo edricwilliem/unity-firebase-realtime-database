@@ -22,7 +22,9 @@ namespace FirebaseREST
         FirebaseServerEventResponse eventResponse;
 
         UnityWebRequest webReq;
+#if UNITY_WEBGL
         FirebaseDatabase.FirebaseEventSourceWebGL esGL;
+#endif
         object CacheData;
 
         int childMovedRefCount = 0, childChangedRefCount = 0, childAddedRefCount = 0, childRemovedRefCount = 0, valueChangedRefCount = 0;

@@ -99,6 +99,7 @@ namespace FirebaseREST
         delegate void _EventSourceErrorArgs(int id, string errorMessage);
         delegate void _EventSourceClosedArgs(int id);
 
+#if UNITY_WEBGL
         static Dictionary<int, FirebaseEventSourceWebGL> esWebGLMap = new Dictionary<int, FirebaseEventSourceWebGL>();
 
         [MonoPInvokeCallback(typeof(_EventSourceOpenArgs))]
@@ -143,5 +144,6 @@ namespace FirebaseREST
 
         [DllImport("__Internal")]
         static extern void CloseEventSource(int id);
+#endif
     }
 }

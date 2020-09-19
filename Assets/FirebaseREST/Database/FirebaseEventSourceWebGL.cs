@@ -3,6 +3,7 @@ namespace FirebaseREST
 {
     public partial class FirebaseDatabase
     {
+#if UNITY_WEBGL
         public class FirebaseEventSourceWebGL
         {
             Action<FirebaseEventSourceErrorArgs> _EventSourceError;
@@ -37,5 +38,6 @@ namespace FirebaseREST
                 }
             }
         }
+#endif
     }
 }
