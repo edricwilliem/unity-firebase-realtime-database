@@ -325,7 +325,7 @@ namespace FirebaseREST
 
         public DatabaseReference Child(string node)
         {
-            return new DatabaseReference(node.Trim('/', ' '));
+            return new DatabaseReference(Reference + "/" + node.Trim('/', ' '));
         }
 
         public override Query EndAt(string value)
